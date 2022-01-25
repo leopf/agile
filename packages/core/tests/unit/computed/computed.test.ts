@@ -5,8 +5,10 @@ import {
   Observer,
   State,
   ComputedTracker,
+  EnhancedState,
 } from '../../../src';
 import * as Utils from '../../../src/utils';
+import * as AgileUtils from '@agile-ts/utils';
 import { LogMock } from '../../helper/logMock';
 import waitForExpect from 'wait-for-expect';
 
@@ -22,6 +24,72 @@ describe('Computed Tests', () => {
     jest.spyOn(Utils, 'extractRelevantObservers');
 
     jest.clearAllMocks();
+  });
+
+  describe('watch function tests', () => {
+    let dummyCallbackFunction;
+    let counterState: EnhancedState<number>;
+    let numberState: Computed<number>;
+
+    beforeEach(() => {
+      counterState = new EnhancedState<number>(dummyAgile, 10, {
+        key: 'numberStateKey',
+      });
+      numberState = new Computed(dummyAgile, () => counterState.value * 2);
+
+      jest.spyOn(numberState, 'addSideEffect');
+      dummyCallbackFunction = jest.fn();
+    });
+
+    it('should add passed watcherFunction to watchers at passed key', () => {
+      const response = numberState.watch('dummyKey', dummyCallbackFunction);
+
+      expect(response).toBe(numberState);
+      expect(numberState.addSideEffect).toHaveBeenCalledWith(
+        'dummyKey',
+        expect.any(Function),
+        { weight: 0 }
+      );
+
+      // Test whether registered callback function is called
+      numberState.sideEffects['dummyKey'].callback(numberState);
+      expect(dummyCallbackFunction).toHaveBeenCalledWith(
+        numberState._value,
+        'dummyKey'
+      );
+    });
+
+    it('should add passed watcherFunction to watchers at random key if no key passed and return that generated key', () => {
+      jest.spyOn(AgileUtils, 'generateId').mockReturnValue('randomKey');
+
+      const response = numberState.watch(dummyCallbackFunction);
+
+      expect(response).toBe('randomKey');
+      expect(numberState.addSideEffect).toHaveBeenCalledWith(
+        'randomKey',
+        expect.any(Function),
+        { weight: 0 }
+      );
+      expect(AgileUtils.generateId).toHaveBeenCalled();
+
+      // Test whether registered callback function is called
+      numberState.sideEffects['randomKey'].callback(numberState);
+      expect(dummyCallbackFunction).toHaveBeenCalledWith(
+        numberState._value,
+        'randomKey'
+      );
+    });
+
+    it("shouldn't add passed invalid watcherFunction to watchers at passed key", () => {
+      const response = numberState.watch(
+        'dummyKey',
+        'noFunction hehe' as any
+      );
+
+      expect(response).toBe(numberState);
+      expect(numberState.addSideEffect).not.toHaveBeenCalled();
+      LogMock.hasLoggedCode('00:03:01', ['Watcher Callback', 'function']);
+    });
   });
 
   it('should create Computed with a not async compute method (default config)', () => {
