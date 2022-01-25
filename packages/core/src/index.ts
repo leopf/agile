@@ -11,5 +11,6 @@ export * from './state';
 export * from './collection';
 export * from './computed';
 export * from './shared';
+export * from './watchable';
 
 export default Agile;
