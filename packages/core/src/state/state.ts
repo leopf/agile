@@ -1,11 +1,12 @@
-import { copy, defineConfig, isFunction } from '@agile-ts/utils';
+import { copy, defineConfig, generateId, isFunction } from '@agile-ts/utils';
 import { logCodeManager } from '../logCodeManager';
 import { Agile } from '../agile';
 import { StateIngestConfigInterface, StateObserver } from './state.observer';
 import { Observer } from '../runtime';
 import { ComputedTracker } from '../computed/computed.tracker'; // Not imported directly from '../computed' due circular dependencies
+import { StateWatcherCallback, Watchable } from '../watchable';
 
-export class State<ValueType = any> {
+export class State<ValueType = any> implements Watchable<ValueType> {
   // Agile Instance the State belongs to
   public agileInstance: () => Agile;
 
@@ -163,6 +164,73 @@ export class State<ValueType = any> {
     // Ingest the State with the new value into the runtime
     this.observers['value'].ingestValue(_value, config);
 
+    return this;
+  }
+
+  /**
+ * Fires on each State value change.
+ *
+ * Returns the key/name identifier of the created watcher callback.
+ *
+ * [Learn more..](https://agile-ts.org/docs/core/state/methods/#watch)
+ *
+ * @public
+ * @param callback - A function to be executed on each State value change.
+ */
+  public watch(callback: StateWatcherCallback<ValueType>): string;
+  /**
+   * Fires on each State value change.
+   *
+   * [Learn more..](https://agile-ts.org/docs/core/state/methods/#watch)
+   *
+   * @public
+   * @param key - Key/Name identifier of the watcher callback.
+   * @param callback - A function to be executed on each State value change.
+   */
+  public watch(key: string, callback: StateWatcherCallback<ValueType>): this;
+  public watch(
+    keyOrCallback: string | StateWatcherCallback<ValueType>,
+    callback?: StateWatcherCallback<ValueType>
+  ): this | string {
+    const generateKey = isFunction(keyOrCallback);
+    let _callback: StateWatcherCallback<ValueType>;
+    let key: string;
+
+    if (generateKey) {
+      key = generateId();
+      _callback = keyOrCallback as StateWatcherCallback<ValueType>;
+    } else {
+      key = keyOrCallback as string;
+      _callback = callback as StateWatcherCallback<ValueType>;
+    }
+
+    if (!isFunction(_callback)) {
+      logCodeManager.log('00:03:01', {
+        replacers: ['Watcher Callback', 'function'],
+      });
+      return this;
+    }
+
+    this.addSideEffect(
+      key,
+      (instance) => {
+        _callback(instance.value, key);
+      },
+      { weight: 0 }
+    );
+    return generateKey ? key : this;
+  }
+
+  /**
+   * Removes a watcher callback with the specified key/name identifier from the State.
+   *
+   * [Learn more..](https://agile-ts.org/docs/core/state/methods/#removewatcher)
+   *
+   * @public
+   * @param key - Key/Name identifier of the watcher callback to be removed.
+   */
+  public removeWatcher(key: string): this {
+    this.removeSideEffect(key);
     return this;
   }
 

@@ -16,8 +16,10 @@ import {
   StatePersistent,
 } from './state.persistent';
 import { PersistentKey, StorageKey } from '../storages';
+import { StateWatcherCallback } from '../watchable';
 
-export class EnhancedState<ValueType = any> extends State<ValueType> {
+
+export class EnhancedState<ValueType = any> extends State<ValueType>  {
   // Whether the State is persisted in an external Storage
   public isPersisted = false;
   // Manages the permanent persistent in external Storages
@@ -155,73 +157,6 @@ export class EnhancedState<ValueType = any> extends State<ValueType> {
     // Ingest updated 'nextStateValue' into runtime
     this.ingest(config);
 
-    return this;
-  }
-
-  /**
-   * Fires on each State value change.
-   *
-   * Returns the key/name identifier of the created watcher callback.
-   *
-   * [Learn more..](https://agile-ts.org/docs/core/state/methods/#watch)
-   *
-   * @public
-   * @param callback - A function to be executed on each State value change.
-   */
-  public watch(callback: StateWatcherCallback<ValueType>): string;
-  /**
-   * Fires on each State value change.
-   *
-   * [Learn more..](https://agile-ts.org/docs/core/state/methods/#watch)
-   *
-   * @public
-   * @param key - Key/Name identifier of the watcher callback.
-   * @param callback - A function to be executed on each State value change.
-   */
-  public watch(key: string, callback: StateWatcherCallback<ValueType>): this;
-  public watch(
-    keyOrCallback: string | StateWatcherCallback<ValueType>,
-    callback?: StateWatcherCallback<ValueType>
-  ): this | string {
-    const generateKey = isFunction(keyOrCallback);
-    let _callback: StateWatcherCallback<ValueType>;
-    let key: string;
-
-    if (generateKey) {
-      key = generateId();
-      _callback = keyOrCallback as StateWatcherCallback<ValueType>;
-    } else {
-      key = keyOrCallback as string;
-      _callback = callback as StateWatcherCallback<ValueType>;
-    }
-
-    if (!isFunction(_callback)) {
-      logCodeManager.log('00:03:01', {
-        replacers: ['Watcher Callback', 'function'],
-      });
-      return this;
-    }
-
-    this.addSideEffect(
-      key,
-      (instance) => {
-        _callback(instance.value, key);
-      },
-      { weight: 0 }
-    );
-    return generateKey ? key : this;
-  }
-
-  /**
-   * Removes a watcher callback with the specified key/name identifier from the State.
-   *
-   * [Learn more..](https://agile-ts.org/docs/core/state/methods/#removewatcher)
-   *
-   * @public
-   * @param key - Key/Name identifier of the watcher callback to be removed.
-   */
-  public removeWatcher(key: string): this {
-    this.removeSideEffect(key);
     return this;
   }
 
@@ -490,6 +425,5 @@ export interface PatchOptionConfigInterface {
   addNewProperties?: boolean;
 }
 
-export type StateWatcherCallback<T = any> = (value: T, key: string) => void;
 export type ComputeValueMethod<T = any> = (value: T) => T;
 export type ComputeExistsMethod<T = any> = (value: T) => boolean;
